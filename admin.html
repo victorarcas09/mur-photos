@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Admin - Mur de photos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+  :root { --nuit:#1b1f3b; --nuit-2:#262b52; --texte:#f3f1ff; --flash:#ff5d8f; --soleil:#ffd23f; --ok:#5be3a0; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--nuit); color:var(--texte); font-family:"Bricolage Grotesque", system-ui, sans-serif; min-height:100vh; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+  .conteneur { max-width: 960px; margin: 0 auto; padding: 28px 16px 80px; }
+  h1 { font-size: clamp(1.8rem, 6vw, 2.8rem); margin: 0 0 6px; font-weight: 800; letter-spacing: -0.02em; }
+  p.sous { margin: 0 0 22px; opacity: .75; }
+  input[type=email], input[type=password] {
+    width: 100%; max-width: 360px; display: block; margin-bottom: 12px;
+    font: inherit; padding: 13px 16px; border-radius: 12px; border: 2px solid transparent;
+    background: var(--nuit-2); color: var(--texte);
+  }
+  input:focus-visible { outline: none; border-color: var(--soleil); }
+  button { font: inherit; font-weight: 700; border: 0; border-radius: 999px; padding: 12px 22px; cursor: pointer; }
+  button:focus-visible, a:focus-visible { outline: 3px solid var(--soleil); outline-offset: 3px; }
+  .primaire { background: var(--flash); color:#fff; }
+  .primaire:hover { background:#ff4580; }
+  .discret { background:#ffffff1f; color: var(--texte); }
+  .danger { background: #e5384f; color:#fff; }
+  .danger:disabled { opacity: .35; cursor: not-allowed; }
+  #erreur { color:#ffb3c6; margin-top: 12px; min-height: 1.2em; }
+
+  .barre-haut { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-bottom: 18px; }
+  .actions { display:flex; flex-wrap:wrap; gap:10px; }
+  .stockage { background: var(--nuit-2); border-radius: 14px; padding: 14px 16px; margin-bottom: 20px; }
+  .stockage .jauge { height: 8px; background:#0004; border-radius:4px; margin-top:8px; overflow:hidden; }
+  .stockage .jauge i { display:block; height:100%; background: var(--ok); width:0; }
+  .stockage.plein .jauge i { background: var(--flash); }
+
+  #grille { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .carte { background: var(--nuit-2); border-radius: 12px; overflow:hidden; position:relative; border: 3px solid transparent; }
+  .carte.sel { border-color: var(--flash); }
+  .carte .m { aspect-ratio:1; background:#0003; position:relative; cursor:pointer; }
+  .carte img, .carte video { width:100%; height:100%; object-fit:cover; display:block; }
+  .carte .tag { position:absolute; left:8px; bottom:8px; background:#000a; border-radius:999px; padding:3px 9px; font-size:.75rem; font-weight:700; }
+  .carte .coche { position:absolute; top:8px; right:8px; width:26px; height:26px; border-radius:50%; background:#000a; border:2px solid #fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.9rem; }
+  .carte.sel .coche { background: var(--flash); border-color: var(--flash); }
+  .carte .info { padding: 8px 10px; font-size:.8rem; opacity:.85; display:flex; justify-content:space-between; }
+  .vide { opacity:.7; padding: 40px 0; text-align:center; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<div class="conteneur">
+  <h1>Admin</h1>
+
+  <!-- Connexion -->
+  <section id="connexion" hidden>
+    <p class="sous">Connecte-toi pour gérer les photos et vidéos.</p>
+    <form id="form-login">
+      <input type="email" id="email" placeholder="Email" autocomplete="username" required>
+      <input type="password" id="mdp" placeholder="Mot de passe" autocomplete="current-password" required>
+      <button class="primaire" type="submit">Se connecter</button>
+    </form>
+    <div id="erreur" role="alert"></div>
+  </section>
+
+  <!-- Gestion -->
+  <section id="gestion" hidden>
+    <div class="barre-haut">
+      <p class="sous" style="margin:0">Touche une photo pour la sélectionner, puis supprime la sélection.</p>
+      <div class="actions">
+        <button class="discret" id="tout">Tout sélectionner</button>
+        <button class="danger" id="suppr" disabled>Supprimer (0)</button>
+        <button class="discret" id="quitter">Se déconnecter</button>
+      </div>
+    </div>
+    <div class="stockage" id="stockage"></div>
+    <div id="grille"></div>
+    <p class="vide" id="vide" hidden>Aucun fichier pour l'instant.</p>
+    <div id="erreur2" style="color:#ffb3c6;margin-top:12px" role="alert"></div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = "https://rglgqqukatdlxpvbagwq.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_pJjjPoHpd5RBUdRH2faBHQ_LUMgHh1U";
+  const BUCKET = "medias";
+  const QUOTA_MO = 1000; // plan gratuit : environ 1 Go
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const $ = (id) => document.getElementById(id);
+  const selection = new Set();
+  let fichiers = [];
+
+  const url = (nom) => sb.storage.from(BUCKET).getPublicUrl(nom).data.publicUrl;
+  const estVideo = (f) => (f.metadata?.mimetype || "").startsWith("video/") || /\.(mp4|mov|webm|m4v|3gp)$/i.test(f.name);
+  const mo = (o) => (o / 1024 / 1024);
+
+  async function afficher() {
+    const { data: { session } } = await sb.auth.getSession();
+    $("connexion").hidden = !!session;
+    $("gestion").hidden = !session;
+    if (session) charger();
+  }
+
+  $("form-login").onsubmit = async (e) => {
+    e.preventDefault();
+    $("erreur").textContent = "";
+    const { error } = await sb.auth.signInWithPassword({ email: $("email").value, password: $("mdp").value });
+    if (error) { $("erreur").textContent = "Connexion impossible : vérifie ton email et ton mot de passe."; return; }
+    $("mdp").value = "";
+    afficher();
+  };
+  $("quitter").onclick = async () => { await sb.auth.signOut(); selection.clear(); afficher(); };
+
+  async function charger() {
+    const { data, error } = await sb.storage.from(BUCKET).list("", { limit: 1000, sortBy: { column: "created_at", order: "desc" } });
+    if (error) { $("erreur2").textContent = "Impossible de charger : " + error.message; return; }
+    fichiers = (data || []).filter((f) => f.name && !f.name.startsWith("."));
+    for (const n of [...selection]) if (!fichiers.some((f) => f.name === n)) selection.delete(n);
+    dessiner();
+  }
+
+  function dessiner() {
+    const total = fichiers.reduce((s, f) => s + (f.metadata?.size || 0), 0);
+    const pct = Math.min(100, (mo(total) / QUOTA_MO) * 100);
+    $("stockage").className = "stockage" + (pct > 85 ? " plein" : "");
+    $("stockage").innerHTML = `<strong>${fichiers.length} fichier${fichiers.length > 1 ? "s" : ""}</strong> · ${mo(total).toFixed(1)} Mo utilisés sur environ ${QUOTA_MO} Mo
+      <div class="jauge"><i style="width:${pct}%"></i></div>`;
+
+    $("vide").hidden = fichiers.length > 0;
+    $("grille").innerHTML = "";
+    for (const f of fichiers) {
+      const video = estVideo(f);
+      const c = document.createElement("div");
+      c.className = "carte" + (selection.has(f.name) ? " sel" : "");
+      c.innerHTML = `<div class="m">
+          ${video ? `<video src="${url(f.name)}#t=0.1" preload="metadata" muted playsinline></video><span class="tag">Vidéo</span>`
+                  : `<img src="${url(f.name)}" loading="lazy" alt="">`}
+          <span class="coche">${selection.has(f.name) ? "✓" : ""}</span>
+        </div>
+        <div class="info"><span>${new Date(f.created_at).toLocaleString("fr-FR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" })}</span><span>${mo(f.metadata?.size || 0).toFixed(1)} Mo</span></div>`;
+      c.querySelector(".m").onclick = () => {
+        selection.has(f.name) ? selection.delete(f.name) : selection.add(f.name);
+        dessiner();
+      };
+      $("grille").append(c);
+    }
+    $("suppr").textContent = `Supprimer (${selection.size})`;
+    $("suppr").disabled = selection.size === 0;
+    $("tout").textContent = selection.size === fichiers.length && fichiers.length ? "Tout désélectionner" : "Tout sélectionner";
+  }
+
+  $("tout").onclick = () => {
+    if (selection.size === fichiers.length) selection.clear();
+    else fichiers.forEach((f) => selection.add(f.name));
+    dessiner();
+  };
+
+  $("suppr").onclick = async () => {
+    const n = selection.size;
+    if (!n || !confirm(`Supprimer définitivement ${n} fichier${n > 1 ? "s" : ""} ? Impossible d'annuler.`)) return;
+    $("erreur2").textContent = "";
+    const { data, error } = await sb.storage.from(BUCKET).remove([...selection]);
+    if (error) { $("erreur2").textContent = "Échec de la suppression : " + error.message; return; }
+    if (!data || data.length < n) $("erreur2").textContent = "Certains fichiers n'ont pas pu être supprimés (vérifie que le SQL admin a bien été lancé).";
+    selection.clear();
+    charger();
+  };
+
+  afficher();
+</script>
+</body>
+</html>
