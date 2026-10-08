@@ -48,6 +48,11 @@
   .carte .info { padding: 8px 10px; font-size:.8rem; opacity:.85; display:flex; justify-content:space-between; }
   .vide { opacity:.7; padding: 40px 0; text-align:center; }
   [hidden] { display:none !important; }
+  .reglages { background: var(--nuit-2); border-radius: 14px; padding: 14px 16px; margin-bottom: 20px; }
+  .reglages h2 { margin: 0 0 10px; font-size: 1.05rem; }
+  .reg { display:flex; align-items:center; gap:12px; padding: 9px 0; cursor:pointer; }
+  .reg input { width: 22px; height: 22px; accent-color: var(--flash); cursor:pointer; }
+  #msg-reg { min-height: 1.2em; font-size:.9rem; margin-top:6px; color: var(--ok); }
 </style>
 </head>
 <body>
@@ -74,6 +79,14 @@
         <button class="danger" id="suppr" disabled>Supprimer (0)</button>
         <button class="discret" id="quitter">Se déconnecter</button>
       </div>
+    </div>
+    <div class="reglages" id="reglages">
+      <h2>Réglages du mur</h2>
+      <label class="reg"><input type="checkbox" data-k="envoi_actif"><span>Envois ouverts (décoche pour tout fermer)</span></label>
+      <label class="reg"><input type="checkbox" data-k="photos_ok"><span>Autoriser les photos</span></label>
+      <label class="reg"><input type="checkbox" data-k="videos_ok"><span>Autoriser les vidéos</span></label>
+      <label class="reg"><input type="checkbox" data-k="telechargement_ok"><span>Autoriser le téléchargement</span></label>
+      <div id="msg-reg" role="status"></div>
     </div>
     <div class="stockage" id="stockage"></div>
     <div id="grille"></div>
@@ -102,8 +115,23 @@
     const { data: { session } } = await sb.auth.getSession();
     $("connexion").hidden = !!session;
     $("gestion").hidden = !session;
-    if (session) charger();
+    if (session) { charger(); chargerReglages(); }
   }
+
+  async function chargerReglages() {
+    const { data } = await sb.from("reglages").select("*").eq("id", 1).maybeSingle();
+    if (!data) { $("msg-reg").style.color = "#ffb3c6"; $("msg-reg").textContent = "Réglages introuvables : lance d'abord le SQL des réglages dans Supabase."; return; }
+    document.querySelectorAll("#reglages input").forEach((i) => (i.checked = !!data[i.dataset.k]));
+  }
+  document.querySelectorAll("#reglages input").forEach((i) => {
+    i.onchange = async () => {
+      const { data, error } = await sb.from("reglages").update({ [i.dataset.k]: i.checked }).eq("id", 1).select();
+      const ok = !error && data && data.length > 0;
+      $("msg-reg").style.color = ok ? "var(--ok)" : "#ffb3c6";
+      $("msg-reg").textContent = ok ? "Enregistré ✓" : "Échec de l'enregistrement : " + (error ? error.message : "droits manquants");
+      if (!ok) chargerReglages();
+    };
+  });
 
   $("form-login").onsubmit = async (e) => {
     e.preventDefault();

@@ -39,6 +39,7 @@
     padding: 16px 28px; cursor: pointer;
   }
   .btn-envoi:hover { background: #ff4580; }
+  [hidden] { display: none !important; }
   .btn-envoi:focus-visible, .dl:focus-visible, .fermer:focus-visible { outline: 3px solid var(--soleil); outline-offset: 3px; }
   .regles { margin: 10px 0 0; font-size: .9rem; opacity: .65; }
   #file { display: none; }
@@ -94,7 +95,7 @@
 <section class="envoi">
   <button class="btn-envoi" id="btn">Ajouter des photos ou vidéos</button>
   <input type="file" id="file" accept="image/*,video/*" multiple>
-  <p class="regles">Photos et vidéos uniquement, 50 Mo maximum par fichier.</p>
+  <p class="regles" id="regles">Photos et vidéos uniquement, 50 Mo maximum par fichier.</p>
   <div id="envois"></div>
 </section>
 
@@ -124,15 +125,32 @@
 
   const estVideo = (f) => (f.metadata?.mimetype || "").startsWith("video/") || /\.(mp4|mov|webm|m4v|3gp)$/i.test(f.name);
 
+  // ---------- Réglages (gérés depuis la page admin) ----------
+  let R = { envoi_actif: true, photos_ok: true, videos_ok: true, telechargement_ok: true };
+  async function chargerReglages() {
+    try {
+      const { data } = await sb.from("reglages").select("*").eq("id", 1).maybeSingle();
+      if (data) R = data;
+    } catch {}
+    const envoiPossible = R.envoi_actif && (R.photos_ok || R.videos_ok);
+    $("btn").hidden = !envoiPossible;
+    $("file").accept = R.photos_ok && R.videos_ok ? "image/*,video/*" : R.videos_ok ? "video/*" : "image/*";
+    const quoi = R.photos_ok && R.videos_ok ? "Photos et vidéos uniquement" : R.videos_ok ? "Vidéos uniquement" : "Photos uniquement";
+    $("regles").textContent = envoiPossible
+      ? `${quoi}, ${MAX_MO} Mo maximum par fichier.`
+      : "Les envois sont fermés pour le moment, mais tu peux toujours regarder le mur.";
+  }
+
   // ---------- Galerie ----------
   let dernierContenu = "";
   async function charger() {
+    await chargerReglages();
     const { data, error } = await sb.storage.from(BUCKET).list("", {
       limit: 300, sortBy: { column: "created_at", order: "desc" }
     });
     if (error) { console.error(error); return; }
     const fichiers = (data || []).filter((f) => f.name && !f.name.startsWith("."));
-    const signature = fichiers.map((f) => f.name).join("|");
+    const signature = fichiers.map((f) => f.name).join("|") + "|" + R.telechargement_ok;
     if (signature === dernierContenu) return;
     dernierContenu = signature;
 
@@ -155,7 +173,7 @@
       const pied = document.createElement("div");
       pied.className = "pied";
       pied.innerHTML = `<span>${new Date(f.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
-        <a class="dl" href="${urlPublique(f.name, true)}">Télécharger</a>`;
+        ${R.telechargement_ok ? `<a class="dl" href="${urlPublique(f.name, true)}">Télécharger</a>` : ""}`;
 
       carte.append(cadre, pied);
       $("grille").append(carte);
@@ -166,7 +184,7 @@
     const url = urlPublique(nom);
     $("vue-contenu").innerHTML =
       (video ? `<video src="${url}" controls autoplay playsinline></video>` : `<img src="${url}" alt="">`) +
-      `<div class="actions"><a class="dl" href="${urlPublique(nom, true)}">Télécharger</a>
+      `<div class="actions">${R.telechargement_ok ? `<a class="dl" href="${urlPublique(nom, true)}">Télécharger</a>` : ""}
        <button class="fermer" id="fermer">Fermer</button></div>`;
     $("fermer").onclick = fermer;
     $("vue").showModal();
@@ -215,6 +233,10 @@
     const echec = (msg) => { l.className = "ligne erreur"; l.innerHTML = `<div>${original.name} : ${msg}</div>`; };
 
     if (!original.type.startsWith("image/") && !original.type.startsWith("video/")) return echec("ce n'est pas une photo ou une vidéo.");
+    const estUneVideo = original.type.startsWith("video/");
+    if (!R.envoi_actif) return echec("les envois sont fermés pour le moment.");
+    if (estUneVideo && !R.videos_ok) return echec("les vidéos ne sont pas acceptées.");
+    if (!estUneVideo && !R.photos_ok) return echec("les photos ne sont pas acceptées.");
     const fichier = await reduireImage(original);
     if (fichier.size > MAX_MO * 1024 * 1024) return echec(`trop lourd (max ${MAX_MO} Mo).`);
 
@@ -238,7 +260,12 @@
         if (xhr.status >= 200 && xhr.status < 300) {
           l.classList.add("ok"); barre.style.width = "100%"; pct.textContent = "Envoyé";
           setTimeout(() => l.remove(), 4000);
-        } else echec("l'envoi a échoué, réessaie.");
+        } else {
+          let detail = "";
+          try { const r = JSON.parse(xhr.responseText); detail = r.message || r.error || ""; } catch {}
+          if (/row-level security/i.test(detail)) detail = "envois fermés ou type de fichier refusé";
+          echec(`l'envoi a échoué (${xhr.status}${detail ? " : " + detail : ""}).`);
+        }
         fini();
       };
       xhr.onerror = () => { echec("problème de connexion."); fini(); };
