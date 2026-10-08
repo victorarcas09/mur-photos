@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mur de photos</title>
+<title>Anniversaire Elisa</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&display=swap" rel="stylesheet">
@@ -26,6 +26,11 @@
     font-family: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
     min-height: 100vh;
     padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+  /* Photo de fond : mets une image nommée fond.jpg à côté de index.html */
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: -1;
+    background: linear-gradient(rgba(27,31,59,.80), rgba(27,31,59,.92)), url("fond.jpg") center / cover no-repeat;
   }
   header { max-width: 900px; margin: 0 auto; padding: 36px 20px 8px; }
   h1 { font-size: clamp(2.2rem, 8vw, 4rem); line-height: 1; margin: 0 0 10px; font-weight: 800; letter-spacing: -0.02em; }
@@ -88,7 +93,7 @@
 <body>
 
 <header>
-  <h1>Mur de photos</h1>
+  <h1>Anniversaire Elisa</h1>
   <p>Regarde ce que les autres ont pris, ajoute tes photos et vidéos, et télécharge celles que tu veux garder.</p>
 </header>
 
