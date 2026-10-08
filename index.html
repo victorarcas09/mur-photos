@@ -87,10 +87,40 @@
   .fermer { background: #fff2; color: #fff; border: 0; border-radius: 999px; font: inherit; font-weight: 700; padding: 10px 20px; cursor: pointer; }
   .vue .dl { padding: 10px 20px; }
 
-  @media (prefers-reduced-motion: reduce) { .polaroid, .barre i { transition: none; } }
+  /* Écran du code d'accès */
+  #porte {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+    background: linear-gradient(rgba(27,31,59,.80), rgba(27,31,59,.92)), url("fond.jpg") center / cover no-repeat, var(--nuit);
+  }
+  .porte-boite { width: 100%; max-width: 380px; text-align: center; }
+  .porte-boite h2 { font-size: clamp(2rem, 9vw, 2.8rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; margin: 0 0 10px; }
+  .porte-boite p { margin: 0 0 18px; opacity: .8; }
+  #code {
+    width: 100%; font: inherit; font-size: 1.2rem; text-align: center;
+    padding: 14px 16px; margin-bottom: 14px; border-radius: 14px;
+    border: 2px solid transparent; background: var(--nuit-2); color: var(--texte);
+  }
+  #code:focus-visible { outline: none; border-color: var(--soleil); }
+  #code-msg { min-height: 1.4em; margin-top: 12px; color: #ffb3c6; }
+  .secoue { animation: secoue .35s; }
+  @keyframes secoue { 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)} }
+  @media (prefers-reduced-motion: reduce) { .polaroid, .barre i { transition: none; } .secoue { animation: none; } }
 </style>
 </head>
 <body>
+
+<div id="porte">
+  <div class="porte-boite">
+    <h2>Anniversaire Elisa</h2>
+    <p>Entre le code d'accès pour voir le mur de photos.</p>
+    <form id="form-code">
+      <input type="text" id="code" placeholder="Code d'accès" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" aria-label="Code d'accès" required>
+      <button class="btn-envoi" type="submit">Entrer</button>
+    </form>
+    <div id="code-msg" role="alert"></div>
+  </div>
+</div>
 
 <header>
   <h1>Anniversaire Elisa</h1>
@@ -278,8 +308,38 @@
     });
   }
 
-  charger();
-  setInterval(charger, 20000); // met la galerie à jour toute seule
+  // ---------- Code d'accès ----------
+  const CODE_ACCES = "elisa"; // change-le ici si tu veux un autre code
+  const normaliser = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+  const zones = () => document.querySelectorAll("header, .envoi, main");
+  let demarre = false;
+
+  function ouvrirSite() {
+    $("porte").hidden = true;
+    zones().forEach((z) => (z.inert = false));
+    if (demarre) return;
+    demarre = true;
+    charger();
+    setInterval(charger, 20000); // met la galerie à jour toute seule
+  }
+
+  let dejaEntre = false;
+  try { dejaEntre = localStorage.getItem("acces_ok") === "1"; } catch {}
+  if (dejaEntre) ouvrirSite();
+  else { zones().forEach((z) => (z.inert = true)); $("code").focus(); }
+
+  $("form-code").onsubmit = (e) => {
+    e.preventDefault();
+    if (normaliser($("code").value) === normaliser(CODE_ACCES)) {
+      try { localStorage.setItem("acces_ok", "1"); } catch {}
+      ouvrirSite();
+    } else {
+      $("code-msg").textContent = "Mauvais code, essaie encore 😉";
+      const b = document.querySelector(".porte-boite");
+      b.classList.remove("secoue"); void b.offsetWidth; b.classList.add("secoue");
+      $("code").select();
+    }
+  };
 </script>
 </body>
 </html>
