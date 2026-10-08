@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mur de photos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --nuit: #1b1f3b;
+    --nuit-2: #262b52;
+    --papier: #ffffff;
+    --texte: #f3f1ff;
+    --flash: #ff5d8f;
+    --soleil: #ffd23f;
+    --encre: #1b1f3b;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--nuit);
+    color: var(--texte);
+    font-family: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100vh;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+  header { max-width: 900px; margin: 0 auto; padding: 36px 20px 8px; }
+  h1 { font-size: clamp(2.2rem, 8vw, 4rem); line-height: 1; margin: 0 0 10px; font-weight: 800; letter-spacing: -0.02em; }
+  header p { margin: 0; font-size: 1.05rem; opacity: .8; max-width: 46ch; line-height: 1.45; }
+
+  .envoi { max-width: 900px; margin: 22px auto 0; padding: 0 20px; }
+  .btn-envoi {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: var(--flash); color: #fff; border: 0; border-radius: 999px;
+    font: inherit; font-weight: 700; font-size: 1.1rem;
+    padding: 16px 28px; cursor: pointer;
+  }
+  .btn-envoi:hover { background: #ff4580; }
+  .btn-envoi:focus-visible, .dl:focus-visible, .fermer:focus-visible { outline: 3px solid var(--soleil); outline-offset: 3px; }
+  .regles { margin: 10px 0 0; font-size: .9rem; opacity: .65; }
+  #file { display: none; }
+
+  #envois { margin-top: 14px; display: grid; gap: 8px; }
+  .ligne { background: var(--nuit-2); border-radius: 12px; padding: 10px 14px; font-size: .92rem; }
+  .ligne .nom { display: flex; justify-content: space-between; gap: 10px; }
+  .ligne .nom span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .barre { height: 6px; background: #0003; border-radius: 3px; margin-top: 8px; overflow: hidden; }
+  .barre i { display: block; height: 100%; width: 0; background: var(--soleil); transition: width .15s; }
+  .ligne.ok .barre i { background: #5be3a0; }
+  .ligne.erreur { color: #ffb3c6; }
+
+  main { max-width: 900px; margin: 0 auto; padding: 28px 12px 80px; }
+  #grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 26px 18px; }
+  .polaroid {
+    background: var(--papier); color: var(--encre);
+    padding: 10px 10px 8px; border-radius: 3px;
+    box-shadow: 0 6px 18px #0006;
+    transform: rotate(var(--r, 0deg));
+    transition: transform .2s;
+  }
+  .polaroid:hover { transform: rotate(0deg) scale(1.03); }
+  .cadre { aspect-ratio: 1; background: #ddd; overflow: hidden; cursor: pointer; position: relative; }
+  .cadre img, .cadre video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .badge-video {
+    position: absolute; right: 8px; bottom: 8px; background: #000a; color: #fff;
+    border-radius: 999px; padding: 4px 10px; font-size: .8rem; font-weight: 700; pointer-events: none;
+  }
+  .pied { display: flex; justify-content: space-between; align-items: center; padding-top: 8px; font-size: .82rem; }
+  .dl { color: var(--encre); font-weight: 700; text-decoration: none; padding: 4px 10px; border-radius: 999px; background: var(--soleil); }
+  .dl:hover { background: #ffc400; }
+  .vide { text-align: center; opacity: .75; padding: 50px 20px; font-size: 1.1rem; }
+
+  dialog { border: 0; padding: 0; background: transparent; max-width: 100vw; max-height: 100vh; width: 100%; height: 100%; }
+  dialog::backdrop { background: #000d; }
+  .vue { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px; }
+  .vue img, .vue video { max-width: 100%; max-height: 80vh; border-radius: 4px; }
+  .vue .actions { display: flex; gap: 10px; }
+  .fermer { background: #fff2; color: #fff; border: 0; border-radius: 999px; font: inherit; font-weight: 700; padding: 10px 20px; cursor: pointer; }
+  .vue .dl { padding: 10px 20px; }
+
+  @media (prefers-reduced-motion: reduce) { .polaroid, .barre i { transition: none; } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Mur de photos</h1>
+  <p>Regarde ce que les autres ont pris, ajoute tes photos et vidéos, et télécharge celles que tu veux garder.</p>
+</header>
+
+<section class="envoi">
+  <button class="btn-envoi" id="btn">Ajouter des photos ou vidéos</button>
+  <input type="file" id="file" accept="image/*,video/*" multiple>
+  <p class="regles">Photos et vidéos uniquement, 50 Mo maximum par fichier.</p>
+  <div id="envois"></div>
+</section>
+
+<main>
+  <div id="grille"></div>
+  <p class="vide" id="vide" hidden>Rien pour l'instant. Sois le premier à ajouter une photo.</p>
+</main>
+
+<dialog id="vue">
+  <div class="vue" id="vue-contenu"></div>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // ====== À REMPLIR (Supabase > Project Settings > API) ======
+  const SUPABASE_URL = "https://rglgqqukatdlxpvbagwq.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_pJjjPoHpd5RBUdRH2faBHQ_LUMgHh1U";
+  const BUCKET = "medias";
+  // ============================================================
+
+  const MAX_MO = 50;
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const $ = (id) => document.getElementById(id);
+
+  const urlPublique = (nom, telecharger) =>
+    sb.storage.from(BUCKET).getPublicUrl(nom, telecharger ? { download: nom } : undefined).data.publicUrl;
+
+  const estVideo = (f) => (f.metadata?.mimetype || "").startsWith("video/") || /\.(mp4|mov|webm|m4v|3gp)$/i.test(f.name);
+
+  // ---------- Galerie ----------
+  let dernierContenu = "";
+  async function charger() {
+    const { data, error } = await sb.storage.from(BUCKET).list("", {
+      limit: 300, sortBy: { column: "created_at", order: "desc" }
+    });
+    if (error) { console.error(error); return; }
+    const fichiers = (data || []).filter((f) => f.name && !f.name.startsWith("."));
+    const signature = fichiers.map((f) => f.name).join("|");
+    if (signature === dernierContenu) return;
+    dernierContenu = signature;
+
+    $("vide").hidden = fichiers.length > 0;
+    $("grille").innerHTML = "";
+    fichiers.forEach((f, i) => {
+      const video = estVideo(f);
+      const url = urlPublique(f.name);
+      const carte = document.createElement("div");
+      carte.className = "polaroid";
+      carte.style.setProperty("--r", ((i * 37) % 7 - 3) * 0.7 + "deg");
+
+      const cadre = document.createElement("div");
+      cadre.className = "cadre";
+      cadre.innerHTML = video
+        ? `<video src="${url}#t=0.1" preload="metadata" muted playsinline></video><span class="badge-video">Vidéo</span>`
+        : `<img src="${url}" loading="lazy" alt="Photo ajoutée">`;
+      cadre.onclick = () => ouvrir(f.name, video);
+
+      const pied = document.createElement("div");
+      pied.className = "pied";
+      pied.innerHTML = `<span>${new Date(f.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+        <a class="dl" href="${urlPublique(f.name, true)}">Télécharger</a>`;
+
+      carte.append(cadre, pied);
+      $("grille").append(carte);
+    });
+  }
+
+  function ouvrir(nom, video) {
+    const url = urlPublique(nom);
+    $("vue-contenu").innerHTML =
+      (video ? `<video src="${url}" controls autoplay playsinline></video>` : `<img src="${url}" alt="">`) +
+      `<div class="actions"><a class="dl" href="${urlPublique(nom, true)}">Télécharger</a>
+       <button class="fermer" id="fermer">Fermer</button></div>`;
+    $("fermer").onclick = fermer;
+    $("vue").showModal();
+  }
+  function fermer() { $("vue").close(); $("vue-contenu").innerHTML = ""; }
+  $("vue").addEventListener("click", (e) => { if (e.target === $("vue") || e.target.id === "vue-contenu") fermer(); });
+  $("vue").addEventListener("close", () => { $("vue-contenu").innerHTML = ""; });
+
+  // ---------- Envoi ----------
+  $("btn").onclick = () => $("file").click();
+  $("file").onchange = async (e) => {
+    const fichiers = [...e.target.files];
+    e.target.value = "";
+    for (const f of fichiers) await envoyer(f);
+    charger();
+  };
+
+  async function reduireImage(fichier) {
+    // Réduit les photos (max 1600 px) pour économiser le stockage gratuit
+    if (!fichier.type.startsWith("image/") || fichier.type === "image/gif") return fichier;
+    try {
+      const bmp = await createImageBitmap(fichier);
+      const ech = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(bmp.width * ech);
+      c.height = Math.round(bmp.height * ech);
+      c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+      const blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.82));
+      return blob && blob.size < fichier.size ? new File([blob], "photo.jpg", { type: "image/jpeg" }) : fichier;
+    } catch { return fichier; }
+  }
+
+  function ligne(nom) {
+    const l = document.createElement("div");
+    l.className = "ligne";
+    l.innerHTML = `<div class="nom"><span></span><span>0 %</span></div><div class="barre"><i></i></div>`;
+    l.querySelector("span").textContent = nom;
+    $("envois").prepend(l);
+    return l;
+  }
+
+  async function envoyer(original) {
+    const l = ligne(original.name);
+    const pct = l.querySelectorAll("span")[1];
+    const barre = l.querySelector("i");
+    const echec = (msg) => { l.className = "ligne erreur"; l.innerHTML = `<div>${original.name} : ${msg}</div>`; };
+
+    if (!original.type.startsWith("image/") && !original.type.startsWith("video/")) return echec("ce n'est pas une photo ou une vidéo.");
+    const fichier = await reduireImage(original);
+    if (fichier.size > MAX_MO * 1024 * 1024) return echec(`trop lourd (max ${MAX_MO} Mo).`);
+
+    const ext = (fichier.name.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const nom = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+    await new Promise((fini) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${nom}`);
+      xhr.setRequestHeader("apikey", SUPABASE_KEY);
+      if (SUPABASE_KEY.startsWith("eyJ")) xhr.setRequestHeader("Authorization", `Bearer ${SUPABASE_KEY}`);
+      xhr.setRequestHeader("Content-Type", fichier.type || "application/octet-stream");
+      xhr.setRequestHeader("cache-control", "max-age=3600");
+      xhr.upload.onprogress = (ev) => {
+        if (!ev.lengthComputable) return;
+        const p = Math.round((ev.loaded / ev.total) * 100);
+        barre.style.width = p + "%";
+        pct.textContent = p + " %";
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          l.classList.add("ok"); barre.style.width = "100%"; pct.textContent = "Envoyé";
+          setTimeout(() => l.remove(), 4000);
+        } else echec("l'envoi a échoué, réessaie.");
+        fini();
+      };
+      xhr.onerror = () => { echec("problème de connexion."); fini(); };
+      xhr.send(fichier);
+    });
+  }
+
+  charger();
+  setInterval(charger, 20000); // met la galerie à jour toute seule
+</script>
+</body>
+</html>
